@@ -15,8 +15,19 @@ def compute_convolution(I, T, stride=None):
     '''
     BEGIN YOUR CODE
     '''
+    print(np.shape(T))
+    (n_rowsT, n_colsT, n_channelsT) = np.shape(T)
     heatmap = np.random.random((n_rows, n_cols))
-
+    
+    std_T = [np.std(T[i]) for i in range(0,n_channels)]
+    r=0
+    while r < n_rows-n_rowsT:
+        c=0
+        while c < n_cols-n_colsT:
+            heatmap[r,c] = np.sum(I[r:r+n_rowsT, c:c+n_colsT, :]*T)
+            c+=1 
+        r+=1
+    
     '''
     END YOUR CODE
     '''
@@ -40,24 +51,40 @@ def predict_boxes(heatmap):
     As an example, here's code that generates between 1 and 5 random boxes
     of fixed size and returns the results in the proper format.
     '''
-
-    box_height = 8
-    box_width = 6
-
-    num_boxes = np.random.randint(1,5)
-
-    for i in range(num_boxes):
-        (n_rows,n_cols,n_channels) = np.shape(I)
-
-        tl_row = np.random.randint(n_rows - box_height)
-        tl_col = np.random.randint(n_cols - box_width)
-        br_row = tl_row + box_height
-        br_col = tl_col + box_width
-
-        score = np.random.random()
-
-        output.append([tl_row,tl_col,br_row,br_col, score])
-
+    rT=15
+    cT=16
+    t=2*(rT * cT)
+    (n_rows,n_cols,n_channels) = np.shape(I)
+    maxh=np.max(heatmap)
+    print(maxh)
+    for r in range(0,n_rows - 2*rT):
+        for c in range(0, n_cols - 2*cT):
+            if heatmap[r,c] > t: #and heatmap[r,c,1] > t and heatmap[r,c,2] > t:
+                tl_row = r
+                tl_col = c
+                br_row = tl_row
+                br_col = tl_col
+                while heatmap[br_row,br_col] > t: #and heatmap[br_row,br_col,1] > t and heatmap[br_row,br_col,2] > t:
+                    if br_row < n_rows-1 and br_col < n_cols-1:    
+                        br_row += 1
+                        br_col += 1
+                    else:
+                        break
+                br_row -= 1 
+                br_col -= 1
+                if True: #tl_row - br_row >= 1 and tl_col - br_col >= 1:
+                    score = heatmap[tl_row,tl_col]/(maxh) #np.mean(heatmap[tl_row:tl_row+br_row,tl_col:tl_col+br_col])
+                    output.append([tl_row,tl_col,tl_row+rT,tl_col+cT, score])
+    output = np.sort(output, axis=0).tolist()
+    tmp = []
+    if len(output) > 0:
+        for o in range(1, len(output)):
+            if output[o][0]-output[o-1][0] > rT or output[o][1]-output[o-1][1] > cT:
+                tmp.append(output[o-1])
+        tmp.append(output[0])
+        output = tmp 
+        print(output)
+        print(type(output))
     '''
     END YOUR CODE
     '''
@@ -88,11 +115,19 @@ def detect_red_light_mf(I):
     template_width = 6
 
     # You may use multiple stages and combine the results
-    T = np.random.random((template_height, template_width))
-
+    T = np.asarray(Image.open('redlight.jpg'))
+    
+    mean = np.mean(I, axis=(0, 1))
+    std  = np.std(I, axis=(0, 1))
+    I = (I - mean) / std
+    mean = np.mean(T, axis=(0, 1))
+    std  = np.std(T, axis=(0, 1))
+    T = (T - mean) / std
     heatmap = compute_convolution(I, T)
     output = predict_boxes(heatmap)
 
+    with open(os.path.join(preds_path,'preds_train.json'),'w') as f:
+        json.dump(output,f)
     '''
     END YOUR CODE
     '''
@@ -110,7 +145,7 @@ data_path = '../../data/RedLights2011_Medium'
 # load splits: 
 split_path = '../../data/hw02_splits'
 file_names_train = np.load(os.path.join(split_path,'file_names_train.npy'))
-file_names_test = np.load(os.path.join(split_Path,'file_names_test.npy'))
+file_names_test = np.load(os.path.join(split_path,'file_names_test.npy'))
 
 # set a path for saving predictions:
 preds_path = '../../data/hw02_preds'
@@ -132,7 +167,7 @@ for i in range(len(file_names_train)):
     I = np.asarray(I)
 
     preds_train[file_names_train[i]] = detect_red_light_mf(I)
-
+    print(file_names_train[i])
 # save preds (overwrites any previous predictions!)
 with open(os.path.join(preds_path,'preds_train.json'),'w') as f:
     json.dump(preds_train,f)
