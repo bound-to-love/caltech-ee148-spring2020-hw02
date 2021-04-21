@@ -2,6 +2,9 @@ import os
 import numpy as np
 import json
 from PIL import Image
+import matplotlib.pyplot as plt  
+
+templates = ['redlight.jpg', 'redlight1.jpg', 'redlight2.jpg', 'redlight3.jpg']
 
 def compute_convolution(I, T, stride=None):
     '''
@@ -15,7 +18,7 @@ def compute_convolution(I, T, stride=None):
     '''
     BEGIN YOUR CODE
     '''
-    print(np.shape(T))
+    #print(np.shape(T))
     (n_rowsT, n_colsT, n_channelsT) = np.shape(T)
     heatmap = np.random.random((n_rows, n_cols))
     
@@ -51,30 +54,37 @@ def predict_boxes(heatmap):
     As an example, here's code that generates between 1 and 5 random boxes
     of fixed size and returns the results in the proper format.
     '''
-    rT=15
-    cT=16
-    t=2*(rT * cT)
     (n_rows,n_cols,n_channels) = np.shape(I)
-    maxh=np.max(heatmap)
-    print(maxh)
-    for r in range(0,n_rows - 2*rT):
-        for c in range(0, n_cols - 2*cT):
-            if heatmap[r,c] > t: #and heatmap[r,c,1] > t and heatmap[r,c,2] > t:
-                tl_row = r
-                tl_col = c
-                br_row = tl_row
-                br_col = tl_col
-                while heatmap[br_row,br_col] > t: #and heatmap[br_row,br_col,1] > t and heatmap[br_row,br_col,2] > t:
-                    if br_row < n_rows-1 and br_col < n_cols-1:    
-                        br_row += 1
-                        br_col += 1
-                    else:
-                        break
-                br_row -= 1 
-                br_col -= 1
-                if True: #tl_row - br_row >= 1 and tl_col - br_col >= 1:
-                    score = heatmap[tl_row,tl_col]/(maxh) #np.mean(heatmap[tl_row:tl_row+br_row,tl_col:tl_col+br_col])
-                    output.append([tl_row,tl_col,tl_row+rT,tl_col+cT, score])
+    h=0
+    for t in templates:
+        # You may use multiple stages and combine the results
+        plt.imshow(heatmap[h], cmap='hot')
+        plt.show()
+        T = np.asarray(Image.open(t))
+        rT=np.shape(T)[0]
+        cT=np.shape(T)[1]
+        t=2*(rT * cT)
+        maxh=np.max(heatmap[h])
+        #print(maxh)
+        for r in range(0,n_rows - 2*rT):
+            for c in range(0, n_cols - 2*cT):
+                if heatmap[h][r,c] > t: 
+                    tl_row = r
+                    tl_col = c
+                    br_row = tl_row
+                    br_col = tl_col
+                    while heatmap[h][br_row,br_col] > t: 
+                        if br_row < n_rows-1 and br_col < n_cols-1:    
+                            br_row += 1
+                            br_col += 1
+                        else:
+                            break
+                    br_row -= 1 
+                    br_col -= 1
+                    if True: #tl_row - br_row >= 1 and tl_col - br_col >= 1:
+                        score = heatmap[h][tl_row,tl_col]/(maxh) 
+                        output.append([tl_row,tl_col,tl_row+rT+2,tl_col+cT+2, score])
+        h+=1
     output = np.sort(output, axis=0).tolist()
     tmp = []
     if len(output) > 0:
@@ -83,8 +93,8 @@ def predict_boxes(heatmap):
                 tmp.append(output[o-1])
         tmp.append(output[0])
         output = tmp 
-        print(output)
-        print(type(output))
+        #print(output)
+        #print(type(output))
     '''
     END YOUR CODE
     '''
@@ -111,23 +121,25 @@ def detect_red_light_mf(I):
     '''
     BEGIN YOUR CODE
     '''
-    template_height = 8
-    template_width = 6
 
-    # You may use multiple stages and combine the results
-    T = np.asarray(Image.open('redlight.jpg'))
-    
     mean = np.mean(I, axis=(0, 1))
     std  = np.std(I, axis=(0, 1))
     I = (I - mean) / std
-    mean = np.mean(T, axis=(0, 1))
-    std  = np.std(T, axis=(0, 1))
-    T = (T - mean) / std
-    heatmap = compute_convolution(I, T)
-    output = predict_boxes(heatmap)
+    heatmaps = []
+    for t in templates: 
+        # You may use multiple stages and combine the results
+        T = np.asarray(Image.open(t))
+    
+        mean = np.mean(T, axis=(0, 1))
+        std  = np.std(T, axis=(0, 1))
+        T = (T - mean) / std
+        heatmap = compute_convolution(I, T)
+        heatmaps.append(heatmap)
+    #heatmap = np.mean(heatmaps, axis=0)
+    #for h in range(0, len(heatmaps)):
+    #     heatmaps[h] = heatmap
+    output = predict_boxes(heatmaps)
 
-    with open(os.path.join(preds_path,'preds_train.json'),'w') as f:
-        json.dump(output,f)
     '''
     END YOUR CODE
     '''
@@ -152,7 +164,7 @@ preds_path = '../../data/hw02_preds'
 os.makedirs(preds_path, exist_ok=True) # create directory if needed
 
 # Set this parameter to True when you're done with algorithm development:
-done_tweaking = False
+done_tweaking = True
 
 '''
 Make predictions on the training set.
@@ -168,6 +180,7 @@ for i in range(len(file_names_train)):
 
     preds_train[file_names_train[i]] = detect_red_light_mf(I)
     print(file_names_train[i])
+print(preds_train)
 # save preds (overwrites any previous predictions!)
 with open(os.path.join(preds_path,'preds_train.json'),'w') as f:
     json.dump(preds_train,f)

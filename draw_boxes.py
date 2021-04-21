@@ -8,8 +8,8 @@ from PIL import ImageDraw
 data_path = '../../data/RedLights2011_Medium'
 preds_path = '../../data/hw02_preds'  
 
-with open(os.path.join(preds_path,'preds_train.json')) as f:
-    print(os.path.join(preds_path,'preds_train.json'))
+with open(os.path.join(preds_path,'preds_test.json')) as f:
+    print(os.path.join(preds_path,'preds_test.json'))
     pred = json.load(f)
     for pic in pred.keys():
         im = Image.open(os.path.join(data_path,pic))
